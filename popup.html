@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>What is todays target ?</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Header -->
+      <div class="header">
+        <img class="logo" src="R.png" alt="R Logo" />
+        <h1 class="title">What is todays target ?</h1>
+      </div>
+
+      
+      <button id="add-task-toggle-btn" class="pill-btn">+ Add Task</button>
+
+      
+      <div id="add-task-panel" class="add-task-panel collapsed">
+        <form id="add-task-form" class="input-form">
+          <div class="input-row">
+            <input 
+              type="text" 
+              id="task-input" 
+              placeholder="Type task e.g. Solve 2 DSA PROBLEM 10:30" 
+              autocomplete="off" 
+            />
+            <button type="submit" id="add-submit-btn" class="submit-btn">Add</button>
+          </div>
+          <div id="preview-chip" class="preview-chip hidden">
+            <span class="preview-icon">⏰</span>
+            <span id="preview-text">Reminder set for 10:30 PM Today</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Task Card -->
+      <div class="task-card">
+        
+        <div class="headers-row">
+          <div class="header-pill">Task</div>
+          <div class="header-pill">Deadline</div>
+        </div>
+
+        
+        <div id="task-list" class="task-list">
+          
+        </div>
+
+        
+        <div id="empty-state" class="empty-state hidden">
+          <p>No tasks yet. Click "+ Add Task" to set your targets!</p>
+        </div>
+      </div>
+
+      
+      <div class="bottom-actions">
+        <button id="remove-tasks-btn" class="pill-btn">+ Remove Task</button>
+      </div>
+    </div>
+
+    
+    <script src="timeParser.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
