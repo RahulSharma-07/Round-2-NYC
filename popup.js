@@ -1,17 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-  
   const addTaskToggleBtn = document.getElementById('add-task-toggle-btn');
   const addTaskPanel     = document.getElementById('add-task-panel');
   const addTaskForm      = document.getElementById('add-task-form');
   const taskInput        = document.getElementById('task-input');
   const taskUrlInput     = document.getElementById('task-url-input');
+  const previewChip      = document.getElementById('preview-chip');
+  const previewText      = document.getElementById('preview-text');
   const taskListEl       = document.getElementById('task-list');
   const emptyStateEl     = document.getElementById('empty-state');
   const removeTasksBtn   = document.getElementById('remove-tasks-btn');
   const testNotifBtn     = document.getElementById('test-notif-btn');
 
-  
+
   let panelOpen = false;
 
   function openPanel() {
@@ -29,11 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
     addTaskToggleBtn.setAttribute('aria-expanded', 'false');
     taskInput.value = '';
     if (taskUrlInput) taskUrlInput.value = '';
+    if (previewChip) { previewChip.classList.add('hidden'); previewChip.style.display = ''; }
+    if (previewText) previewText.textContent = '';
   }
 
-  closePanel(); 
+  closePanel();
 
-  
+
   addTaskToggleBtn.addEventListener('click', () => {
     panelOpen ? closePanel() : openPanel();
   });
@@ -48,7 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  
+
+  taskInput.addEventListener('input', () => {
+    if (typeof TimeParser === 'undefined' || !previewChip || !previewText) return;
+    const parsed = TimeParser.parseTaskInput(taskInput.value);
+    if (parsed.hasTime) {
+      previewChip.classList.remove('hidden');
+      previewChip.style.display = 'flex';
+      previewText.textContent = parsed.previewText;
+    } else {
+      previewChip.classList.add('hidden');
+      previewChip.style.display = '';
+      previewText.textContent = '';
+    }
+  });
+
+
   addTaskForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -57,27 +75,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rawUrl = taskUrlInput ? taskUrlInput.value.trim() : '';
 
+
+    if (rawUrl && rawUrl.length < 3) {
+      showToast('URL trigger must be at least 3 characters.');
+      return;
+    }
+
+
+    let title = rawValue;
+    let timestamp = null;
+    let formattedTime = '';
+
+    if (typeof TimeParser !== 'undefined') {
+      const parsed = TimeParser.parseTaskInput(rawValue);
+      title = parsed.title;
+      timestamp = parsed.timestamp;
+      formattedTime = parsed.formattedTime;
+    }
+
     const newTask = {
       id:            'task_' + Date.now(),
-      text:          rawValue,
+      text:          title,
       url:           rawUrl,
       completed:     false,
-      timestamp:     null,
+      timestamp:     timestamp,
+      formattedTime: formattedTime,
       snoozed:       false,
     };
 
-    
     getTasks((currentTasks) => {
       const updated = [newTask, ...currentTasks];
       saveTasks(updated, () => {
+
+        if (timestamp) {
+          chrome.alarms.create(newTask.id, { when: timestamp });
+        }
         closePanel();
         renderTasks(updated);
-        showToast('Task added' + (newTask.url ? ' with URL trigger!' : '!'));
+        updateBadge(updated);
+        const parts = [];
+        if (formattedTime) parts.push('reminder at ' + formattedTime);
+        if (rawUrl) parts.push('URL trigger');
+        showToast('Task added' + (parts.length ? ' with ' + parts.join(' & ') + '!' : '!'));
       });
     });
   });
 
-  
+
 
   function getTasks(callback) {
     chrome.storage.local.get('tasks', (result) => {
@@ -86,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
         callback([]);
         return;
       }
-      
       const tasks = Array.isArray(result.tasks) ? result.tasks : [];
       callback(tasks);
     });
@@ -103,7 +146,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  
+  function updateBadge(tasks) {
+    if (tasks) {
+      const count = tasks.filter(t => !t.completed).length;
+      chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+      chrome.action.setBadgeBackgroundColor({ color: '#34c759' });
+    } else {
+      chrome.storage.local.get({ tasks: [] }, (data) => {
+        if (chrome.runtime.lastError) return;
+        const count = data.tasks.filter(t => !t.completed).length;
+        chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+        chrome.action.setBadgeBackgroundColor({ color: '#34c759' });
+      });
+    }
+  }
+
+
 
   function renderTasks(tasks) {
     taskListEl.innerHTML = '';
@@ -141,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.id = task.id;
     row.setAttribute('role', 'listitem');
 
-    
+
     const pill = document.createElement('div');
     pill.className = 'task-pill';
 
@@ -173,10 +231,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     pill.appendChild(titleSpan);
+
+
+    if (task.formattedTime && !task.completed) {
+      const timeBadge = document.createElement('span');
+      timeBadge.className = 'task-time-badge';
+      timeBadge.textContent = '\u23F0 ' + task.formattedTime;
+      pill.appendChild(timeBadge);
+    }
+
     pill.appendChild(divider);
     pill.appendChild(linkAnchor);
 
-    
+
     const checkbox = document.createElement('div');
     checkbox.className = 'checkbox' + (task.completed ? ' checked' : '');
     checkbox.setAttribute('role', 'checkbox');
@@ -195,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFn(e); }
     });
 
-    
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className   = 'delete-btn';
     deleteBtn.textContent = '\u00D7';
@@ -212,7 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return row;
   }
 
-  
+
+
   function toggleTask(taskId) {
     getTasks((tasks) => {
       const updated = tasks.map((t) => {
@@ -225,11 +293,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return { ...t, completed: nowDone, snoozed: nowDone ? false : t.snoozed };
       });
-      saveTasks(updated, () => renderTasks(updated));
+      saveTasks(updated, () => {
+        renderTasks(updated);
+        updateBadge(updated);
+      });
     });
   }
 
-  
   function deleteTask(taskId, rowEl) {
     rowEl.style.transition = 'opacity 0.18s, transform 0.18s';
     rowEl.style.opacity    = '0';
@@ -240,12 +310,13 @@ document.addEventListener('DOMContentLoaded', () => {
         saveTasks(updated, () => {
           chrome.alarms.clear(taskId);
           renderTasks(updated);
+          updateBadge(updated);
         });
       });
     }, 200);
   }
 
-  
+
   removeTasksBtn.addEventListener('click', () => {
     getTasks((tasks) => {
       const done      = tasks.filter((t) => t.completed);
@@ -255,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         done.forEach((t) => chrome.alarms.clear(t.id));
         saveTasks(remaining, () => {
           renderTasks(remaining);
+          updateBadge(remaining);
           showToast(done.length + ' completed task(s) removed.');
         });
       } else if (tasks.length > 0) {
@@ -262,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
           tasks.forEach((t) => chrome.alarms.clear(t.id));
           saveTasks([], () => {
             renderTasks([]);
+            updateBadge([]);
             showToast('All tasks removed.');
           });
         });
@@ -271,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  
+
   if (testNotifBtn) {
     testNotifBtn.addEventListener('click', () => {
       chrome.notifications.create('test_' + Date.now(), {
@@ -289,7 +362,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  
+
+
   function showToast(message) {
     const old = document.querySelector('.toast');
     if (old) old.remove();
@@ -331,8 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   }
 
+
+
   getTasks((tasks) => {
     renderTasks(tasks);
+    updateBadge(tasks);
   });
 
 });

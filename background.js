@@ -1,59 +1,13 @@
 const ICON_URL = chrome.runtime.getURL('R.png');
 
 
-const activeTabNotifications = new Map();
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    chrome.storage.local.get({ tasks: [] }, (data) => {
-      if (chrome.runtime.lastError) return;
-      const now = Date.now();
-
-      data.tasks.forEach((task) => {
-        if (task.completed || !task.url) return;
-
-        
-        const isSnoozed = task.snoozed && task.timestamp && task.timestamp > now;
-        if (isSnoozed) return;
-
-        if (matchUrl(tab.url, task.url)) {
-          if (!activeTabNotifications.has(tabId)) {
-            activeTabNotifications.set(tabId, new Set());
-          }
-          const notifiedSet = activeTabNotifications.get(tabId);
-          if (!notifiedSet.has(task.id)) {
-            notifiedSet.add(task.id);
-            fireNotification(task.id);
-          }
-        }
-      });
-    });
-  }
-});
-
-chrome.tabs.onRemoved.addListener((tabId) => {
-  activeTabNotifications.delete(tabId);
-});
-
-function matchUrl(tabUrl, taskUrl) {
-  if (!tabUrl || !taskUrl) return false;
-
-  function clean(url) {
-    let u = url.toLowerCase().trim();
-    
-    u = u.replace(/^(https?:\/\/)?(www\.)?/, '');
-    if (u.endsWith('/')) {
-      u = u.slice(0, -1);
-    }
-    return u;
-  }
-
-  const cleanTab = clean(tabUrl);
-  const cleanTask = clean(taskUrl);
-
-  if (cleanTask.length < 3) return false;
-
-  return cleanTab.includes(cleanTask);
+function updateBadge() {
+  chrome.storage.local.get({ tasks: [] }, (data) => {
+    if (chrome.runtime.lastError) return;
+    const count = data.tasks.filter(t => !t.completed).length;
+    chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+    chrome.action.setBadgeBackgroundColor({ color: '#34c759' });
+  });
 }
 
 function clearSnoozeFlag(taskId) {
@@ -93,7 +47,7 @@ function fireNotification(taskId) {
         iconUrl:            ICON_URL,
         title:              'Right Info, Right Time',
         message:            task.text,
-        contextMessage:     task.url ? 'Trigger URL: ' + task.url : '',
+        contextMessage:     task.url ? 'Trigger URL: ' + task.url : (task.formattedTime ? 'Scheduled: ' + task.formattedTime : ''),
         priority:           2,
         requireInteraction: true,
         buttons: [
@@ -129,8 +83,7 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
     }
 
     if (buttonIndex === 0) {
-      
-      
+
       tasks[taskIndex].completed = true;
       tasks[taskIndex].snoozed   = false;
       chrome.storage.local.set({ tasks }, () => {
@@ -138,11 +91,11 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
         chrome.alarms.clear(taskId);
         chrome.notifications.clear(notificationId);
         console.log('[RITT] Task marked done:', tasks[taskIndex].text);
+        updateBadge();
       });
 
     } else if (buttonIndex === 1) {
-      
-      
+
       const snoozeDelay    = 10 * 60 * 1000;
       const newTimestamp   = Date.now() + snoozeDelay;
       const d              = new Date(newTimestamp);
@@ -183,6 +136,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   console.log('[RITT] Extension installed/updated:', details.reason);
   syncAlarmsWithStorage();
   schedulePeriodicSync();
+  updateBadge();
 });
 
 
@@ -191,6 +145,7 @@ chrome.runtime.onStartup.addListener(() => {
   console.log('[RITT] Browser started — syncing alarms.');
   syncAlarmsWithStorage();
   schedulePeriodicSync();
+  updateBadge();
 });
 
 
@@ -201,10 +156,9 @@ function syncAlarmsWithStorage() {
     const now = Date.now();
 
     data.tasks.forEach((task) => {
-      if (task.completed || !task.snoozed || !task.timestamp) return;
+      if (task.completed || !task.timestamp) return;
 
       if (task.timestamp > now) {
-        
         chrome.alarms.get(task.id, (existing) => {
           if (!existing) {
             chrome.alarms.create(task.id, { when: task.timestamp });
@@ -212,7 +166,6 @@ function syncAlarmsWithStorage() {
           }
         });
       } else if (task.timestamp > now - 60 * 1000) {
-        
         console.log('[RITT] Missed alarm (within 1 min) — firing now:', task.text);
         clearSnoozeFlag(task.id);
         fireNotification(task.id);
@@ -236,7 +189,6 @@ function schedulePeriodicSync() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'SCHEDULE_ALARM') {
-    
     sendResponse({ success: true });
     return true;
   }
@@ -245,6 +197,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.alarms.clear(message.taskId, (cleared) => {
       sendResponse({ success: cleared });
     });
+    return true;
+  }
+
+  if (message.type === 'UPDATE_BADGE') {
+    updateBadge();
+    sendResponse({ success: true });
     return true;
   }
 
