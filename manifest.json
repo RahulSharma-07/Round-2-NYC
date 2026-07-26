@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Right Info, Right Time",
+  "version": "1.0",
+  "description": "A lightweight to-do list & reminder assistant built into your browser.",
+  "permissions": [
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "What is todays target ?"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
