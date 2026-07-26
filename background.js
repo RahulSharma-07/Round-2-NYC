@@ -1,12 +1,80 @@
 const ICON_URL = chrome.runtime.getURL('R.png');
 
 
+const activeTabNotifications = new Map();
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    chrome.storage.local.get({ tasks: [] }, (data) => {
+      if (chrome.runtime.lastError) return;
+      const now = Date.now();
+
+      data.tasks.forEach((task) => {
+        if (task.completed || !task.url) return;
+
+        
+        const isSnoozed = task.snoozed && task.timestamp && task.timestamp > now;
+        if (isSnoozed) return;
+
+        if (matchUrl(tab.url, task.url)) {
+          if (!activeTabNotifications.has(tabId)) {
+            activeTabNotifications.set(tabId, new Set());
+          }
+          const notifiedSet = activeTabNotifications.get(tabId);
+          if (!notifiedSet.has(task.id)) {
+            notifiedSet.add(task.id);
+            fireNotification(task.id);
+          }
+        }
+      });
+    });
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  activeTabNotifications.delete(tabId);
+});
+
+function matchUrl(tabUrl, taskUrl) {
+  if (!tabUrl || !taskUrl) return false;
+
+  function clean(url) {
+    let u = url.toLowerCase().trim();
+    
+    u = u.replace(/^(https?:\/\/)?(www\.)?/, '');
+    if (u.endsWith('/')) {
+      u = u.slice(0, -1);
+    }
+    return u;
+  }
+
+  const cleanTab = clean(tabUrl);
+  const cleanTask = clean(taskUrl);
+
+  if (cleanTask.length < 3) return false;
+
+  return cleanTab.includes(cleanTask);
+}
+
+function clearSnoozeFlag(taskId) {
+  chrome.storage.local.get({ tasks: [] }, (data) => {
+    if (chrome.runtime.lastError) return;
+    const tasks = data.tasks;
+    const taskIndex = tasks.findIndex((t) => t.id === taskId);
+    if (taskIndex !== -1) {
+      tasks[taskIndex].snoozed = false;
+      tasks[taskIndex].timestamp = null;
+      chrome.storage.local.set({ tasks });
+    }
+  });
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync-check') {
     syncAlarmsWithStorage();
     return;
   }
+  clearSnoozeFlag(alarm.name);
   fireNotification(alarm.name);
 });
 
@@ -25,7 +93,7 @@ function fireNotification(taskId) {
         iconUrl:            ICON_URL,
         title:              'Right Info, Right Time',
         message:            task.text,
-        contextMessage:     task.formattedTime ? 'Scheduled: ' + task.formattedTime : '',
+        contextMessage:     task.url ? 'Trigger URL: ' + task.url : '',
         priority:           2,
         requireInteraction: true,
         buttons: [
@@ -133,10 +201,10 @@ function syncAlarmsWithStorage() {
     const now = Date.now();
 
     data.tasks.forEach((task) => {
-      if (task.completed || !task.timestamp) return;
+      if (task.completed || !task.snoozed || !task.timestamp) return;
 
       if (task.timestamp > now) {
-        // Only create if missing — popup may have already created it
+        
         chrome.alarms.get(task.id, (existing) => {
           if (!existing) {
             chrome.alarms.create(task.id, { when: task.timestamp });
@@ -144,8 +212,9 @@ function syncAlarmsWithStorage() {
           }
         });
       } else if (task.timestamp > now - 60 * 1000) {
-        // Missed within the last minute — fire now
+        
         console.log('[RITT] Missed alarm (within 1 min) — firing now:', task.text);
+        clearSnoozeFlag(task.id);
         fireNotification(task.id);
       }
     });

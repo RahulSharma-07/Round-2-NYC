@@ -5,8 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const addTaskPanel     = document.getElementById('add-task-panel');
   const addTaskForm      = document.getElementById('add-task-form');
   const taskInput        = document.getElementById('task-input');
-  const previewChip      = document.getElementById('preview-chip');
-  const previewText      = document.getElementById('preview-text');
+  const taskUrlInput     = document.getElementById('task-url-input');
   const taskListEl       = document.getElementById('task-list');
   const emptyStateEl     = document.getElementById('empty-state');
   const removeTasksBtn   = document.getElementById('remove-tasks-btn');
@@ -29,8 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addTaskToggleBtn.textContent = '+ Add Task';
     addTaskToggleBtn.setAttribute('aria-expanded', 'false');
     taskInput.value = '';
-    previewChip.style.display = 'none';
-    previewText.textContent   = '';
+    if (taskUrlInput) taskUrlInput.value = '';
   }
 
   closePanel(); 
@@ -44,18 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') closePanel();
   });
 
-  
-  taskInput.addEventListener('input', () => {
-    const val = taskInput.value.trim();
-    if (!val || !window.TimeParser) { previewChip.style.display = 'none'; return; }
-    const parsed = TimeParser.parseTaskInput(val);
-    if (parsed.hasTime && parsed.previewText) {
-      previewText.textContent   = parsed.previewText;
-      previewChip.style.display = 'flex';
-    } else {
-      previewChip.style.display = 'none';
-    }
-  });
+  if (taskUrlInput) {
+    taskUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePanel();
+    });
+  }
 
   
   addTaskForm.addEventListener('submit', (e) => {
@@ -64,18 +55,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawValue = taskInput.value.trim();
     if (!rawValue) { showToast('Please type a task first.'); return; }
 
-    let parsed = { title: rawValue, timestamp: null, formattedTime: '--:--', hasTime: false };
-    if (window.TimeParser) {
-      try { parsed = TimeParser.parseTaskInput(rawValue); }
-      catch (err) { console.error('[RITT] parse error:', err); }
-    }
+    const rawUrl = taskUrlInput ? taskUrlInput.value.trim() : '';
 
     const newTask = {
       id:            'task_' + Date.now(),
-      text:          (parsed.title && parsed.title.trim()) ? parsed.title.trim() : rawValue,
-      formattedTime: parsed.formattedTime || '--:--',
+      text:          rawValue,
+      url:           rawUrl,
       completed:     false,
-      timestamp:     parsed.timestamp || null,
+      timestamp:     null,
       snoozed:       false,
     };
 
@@ -83,12 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
     getTasks((currentTasks) => {
       const updated = [newTask, ...currentTasks];
       saveTasks(updated, () => {
-        if (newTask.timestamp && newTask.timestamp > Date.now()) {
-          chrome.alarms.create(newTask.id, { when: newTask.timestamp });
-        }
         closePanel();
         renderTasks(updated);
-        showToast('Task added' + (newTask.timestamp ? ' with reminder!' : '!'));
+        showToast('Task added' + (newTask.url ? ' with URL trigger!' : '!'));
       });
     });
   });
@@ -133,6 +117,20 @@ document.addEventListener('DOMContentLoaded', () => {
     tasks.forEach((task) => taskListEl.appendChild(buildTaskRow(task)));
   }
 
+  function getDomain(url) {
+    if (!url) return '';
+    try {
+      let cleanUrl = url.trim();
+      if (!/^https?:\/\//i.test(cleanUrl)) {
+        cleanUrl = 'http://' + cleanUrl;
+      }
+      const parsed = new URL(cleanUrl);
+      return parsed.hostname.replace(/^www\./i, '');
+    } catch (e) {
+      return url;
+    }
+  }
+
   function buildTaskRow(task) {
     const isSnoozed = !!(task.snoozed && !task.completed);
 
@@ -155,16 +153,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const divider = document.createElement('div');
     divider.className = 'task-divider';
 
-    const timeSpan = document.createElement('span');
-    timeSpan.className   = 'task-time';
-    timeSpan.textContent = isSnoozed
-      ? '\u23F0 ' + (task.formattedTime || '--:--')
-      : (task.formattedTime || '--:--');
-    if (isSnoozed) timeSpan.title = 'Snoozed — fires at ' + task.formattedTime;
+    const linkAnchor = document.createElement('a');
+    linkAnchor.className = 'task-link';
+    if (task.url) {
+      const urlText = getDomain(task.url);
+      linkAnchor.textContent = isSnoozed ? '\u23F0 ' + urlText : urlText;
+      linkAnchor.href = task.url.startsWith('http') ? task.url : 'https://' + task.url;
+      linkAnchor.target = '_blank';
+      linkAnchor.title = task.url;
+      linkAnchor.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        chrome.tabs.create({ url: linkAnchor.href });
+      });
+    } else {
+      linkAnchor.textContent = isSnoozed ? '\u23F0 --' : '--';
+      linkAnchor.className = 'task-link empty';
+      linkAnchor.style.pointerEvents = 'none';
+    }
 
     pill.appendChild(titleSpan);
     pill.appendChild(divider);
-    pill.appendChild(timeSpan);
+    pill.appendChild(linkAnchor);
 
     
     const checkbox = document.createElement('div');
@@ -321,20 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   }
 
-  const DEFAULT_TASKS = [
-    { id: 'task_1', text: 'Solve 2 DSA PROBLEM',      formattedTime: '10:30 AM', completed: false, timestamp: null, snoozed: false },
-    { id: 'task_2', text: 'Complete Python notes',    formattedTime: '6:30 PM',  completed: true,  timestamp: null, snoozed: false },
-    { id: 'task_3', text: 'Make a server in DC',      formattedTime: '12:00 PM', completed: false, timestamp: null, snoozed: false },
-    { id: 'task_4', text: 'Draft an email for leave', formattedTime: '7:30 AM',  completed: true,  timestamp: null, snoozed: false },
-  ];
-
   getTasks((tasks) => {
-    if (tasks.length === 0) {
-      
-      saveTasks(DEFAULT_TASKS, () => renderTasks(DEFAULT_TASKS));
-    } else {
-      renderTasks(tasks);
-    }
+    renderTasks(tasks);
   });
 
 });

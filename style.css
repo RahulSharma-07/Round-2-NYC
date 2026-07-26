@@ -133,7 +133,7 @@ body {
   gap: 8px;
 }
 
-#task-input {
+#task-input, #task-url-input {
   flex: 1;
   background: var(--surface);
   border: 1.5px solid var(--border);
@@ -146,9 +146,9 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-#task-input::placeholder { color: var(--text-dim); }
+#task-input::placeholder, #task-url-input::placeholder { color: var(--text-dim); }
 
-#task-input:focus {
+#task-input:focus, #task-url-input:focus {
   border-color: var(--surface-3);
   box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
 }
@@ -205,7 +205,7 @@ body {
 }
 
 .header-task     { flex: 1; display: flex; }
-.header-deadline { flex-shrink: 0; margin-right: 34px; }
+.header-link     { flex-shrink: 0; margin-right: 48px; }
 
 .header-pill {
   background: var(--surface-2);
@@ -251,7 +251,7 @@ body {
   align-items: center;
   background: var(--surface-2);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  padding: 10px 40px 10px 14px;
   min-width: 0;
   box-shadow: var(--shadow-row);
   transition: opacity 0.22s, background 0.18s;
@@ -276,23 +276,34 @@ body {
   flex-shrink: 0;
 }
 
-.task-time {
+.task-link {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
+  color: var(--accent-green);
+  text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: -0.1px;
+  transition: opacity 0.18s;
 }
 
-/* Completed state */
+.task-link:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.task-link.empty {
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+
 .task-row.completed .task-pill { opacity: 0.6; }
 .task-row.completed .task-text { text-decoration: line-through; color: var(--text-dim); }
-.task-row.completed .task-time { color: var(--text-dim); }
+.task-row.completed .task-link { color: var(--text-dim); pointer-events: none; }
 
-/* Snoozed state */
-.task-row.snoozed .task-time { color: #ff9f0a; }
+
+.task-row.snoozed .task-link { color: #ff9f0a; }
 .task-row.snoozed .task-pill { border: 1px solid rgba(255, 159, 10, 0.25); }
 
 
@@ -432,7 +443,7 @@ body {
 .btn-confirm-del       { background: var(--red); color: #fff; }
 .btn-confirm-del:hover { background: #e03a30; }
 
-/* ── Animations ────────────────────────────────────────────────────────────── */
+
 
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(6px); }

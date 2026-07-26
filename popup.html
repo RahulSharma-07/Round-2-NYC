@@ -32,44 +32,47 @@
             <input
               type="text"
               id="task-input"
-              placeholder="e.g. Study Biology at 7 PM / in 30 min"
+              placeholder="e.g. Add Golu as friend"
               autocomplete="off"
               aria-label="Task description"
             />
-            <button type="submit" id="add-submit-btn" class="submit-btn">Add</button>
           </div>
-          <div id="preview-chip" class="preview-chip hidden" aria-live="polite">
-            <span class="preview-icon">&#9200;</span>
-            <span id="preview-text"></span>
+          <div class="input-row">
+            <input
+              type="text"
+              id="task-url-input"
+              placeholder="Trigger URL (optional), e.g. facebook.com"
+              autocomplete="off"
+              aria-label="Trigger URL"
+            />
+            <button type="submit" id="add-submit-btn" class="submit-btn">Add</button>
           </div>
         </form>
       </div>
-
+ 
       <div class="task-card">
         <div class="headers-row">
           <div class="header-task">
             <div class="header-pill">Task</div>
           </div>
-          <div class="header-deadline">
-            <div class="header-pill">Deadline</div>
+          <div class="header-link">
+            <div class="header-pill">Link</div>
           </div>
         </div>
-
+ 
         <div id="task-list" class="task-list" role="list" aria-label="Task list"></div>
-
+ 
         <div id="empty-state" class="empty-state hidden" role="status">
-          <div class="empty-icon">&#127919;</div>
           <p>No tasks yet.<br/>Click &quot;+ Add Task&quot; to set your targets!</p>
         </div>
       </div>
-
+ 
       <div class="bottom-actions">
         <button id="remove-tasks-btn" class="pill-btn">Remove Done</button>
       </div>
-
+ 
     </div>
-
-    <script src="timeParser.js"></script>
+ 
     <script src="popup.js"></script>
   </body>
 </html>
