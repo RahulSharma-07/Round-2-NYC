@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Right Info, Right Time",
   "version": "1.0",
-  "description": "A lightweight to-do list & reminder assistant built into your browser.",
+  "description": "A lightweight to-do list & reminder assistant that lives inside your browser.",
   "permissions": [
     "storage",
     "notifications",
@@ -10,9 +10,24 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "What is todays target ?"
+    "default_title": "What is todays target?",
+    "default_icon": {
+      "16":  "R.png",
+      "32":  "R.png",
+      "48":  "R.png",
+      "128": "R.png"
+    }
+  },
+  "icons": {
+    "16":  "R.png",
+    "32":  "R.png",
+    "48":  "R.png",
+    "128": "R.png"
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
   }
 }

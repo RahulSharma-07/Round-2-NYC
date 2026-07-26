@@ -3,65 +3,72 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>What is todays target ?</title>
-    <link rel="stylesheet" href="style.css">
+    <title>What is todays target?</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app-container">
-      <!-- Header -->
+
       <div class="header">
-        <img class="logo" src="R.png" alt="R Logo" />
-        <h1 class="title">What is todays target ?</h1>
+        <img class="logo" src="R.png" alt="R" />
+        <h1 class="title">What is todays target&nbsp;?</h1>
       </div>
 
-      
-      <button id="add-task-toggle-btn" class="pill-btn">+ Add Task</button>
+      <div class="top-row">
+        <button id="add-task-toggle-btn" class="pill-btn" aria-expanded="false">
+          + Add Task
+        </button>
+        <button id="test-notif-btn" class="pill-btn pill-btn-ghost" title="Send a test notification to verify they are working">
+          Test Notify
+        </button>
+      </div>
 
-      
-      <div id="add-task-panel" class="add-task-panel collapsed">
+      <div id="add-task-panel" class="add-task-panel" role="region" aria-label="Add task form">
         <form id="add-task-form" class="input-form">
           <div class="input-row">
-            <input 
-              type="text" 
-              id="task-input" 
-              placeholder="Type task e.g. Solve 2 DSA PROBLEM 10:30" 
-              autocomplete="off" 
+            <input
+              type="text"
+              id="task-input"
+              placeholder="e.g. Study Biology at 7 PM / in 30 min"
+              autocomplete="off"
+              aria-label="Task description"
             />
             <button type="submit" id="add-submit-btn" class="submit-btn">Add</button>
           </div>
-          <div id="preview-chip" class="preview-chip hidden">
-            <span class="preview-icon">⏰</span>
-            <span id="preview-text">Reminder set for 10:30 PM Today</span>
+          <div id="preview-chip" class="preview-chip hidden" aria-live="polite">
+            <span class="preview-icon">&#9200;</span>
+            <span id="preview-text"></span>
           </div>
         </form>
       </div>
 
-      <!-- Task Card -->
       <div class="task-card">
-        
         <div class="headers-row">
-          <div class="header-pill">Task</div>
-          <div class="header-pill">Deadline</div>
+          <div class="header-task">
+            <div class="header-pill">Task</div>
+          </div>
+          <div class="header-deadline">
+            <div class="header-pill">Deadline</div>
+          </div>
         </div>
 
-        
-        <div id="task-list" class="task-list">
-          
-        </div>
+        <div id="task-list" class="task-list" role="list" aria-label="Task list"></div>
 
-        
-        <div id="empty-state" class="empty-state hidden">
-          <p>No tasks yet. Click "+ Add Task" to set your targets!</p>
+        <div id="empty-state" class="empty-state hidden" role="status">
+          <div class="empty-icon">&#127919;</div>
+          <p>No tasks yet.<br/>Click &quot;+ Add Task&quot; to set your targets!</p>
         </div>
       </div>
 
-      
       <div class="bottom-actions">
-        <button id="remove-tasks-btn" class="pill-btn">+ Remove Task</button>
+        <button id="remove-tasks-btn" class="pill-btn">Remove Done</button>
       </div>
+
     </div>
 
-    
     <script src="timeParser.js"></script>
     <script src="popup.js"></script>
   </body>
